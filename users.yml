@@ -1,0 +1,116 @@
+- name: Ansible Create user functionlity module demo
+  hosts: servers # Defining the remote server inventory host group  
+  #remote_user: ansible # New user being created
+  become: yes
+  vars:
+    new_user: ansible
+  tasks:
+
+        # name - Defines the username that is present or to create
+        # groups - Adds users in secondary groups or use groups
+        # state: present - Creates a user or works with a user
+        # state: absent - Deletes a user
+        # shell - Specifies shell-type a user can work on
+        # home - Sets a user’s home directory
+        # createhome: yes - Create a home directory for a user 
+        # createhome: no - Do not create a home directory for a user
+
+    # Creating the user with sudo.
+    - name: Create  the new user with the group of 'sudo'.
+      ansible.builtin.user:
+        name: ansible
+        password: "{{ 'welcome@nsible' | password_hash('sha512') }}"
+        comment: A test of ansible
+        group: sudo
+        createhome: yes
+        home: /home/ansible
+        shell: /bin/bash
+        #generate_ssh_key: true
+
+    # Adding the user ansible in the jcox group 
+    - name: Backup ssh config file
+      command: "cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak"
+
+    # Make exception for password login via ssh to keys can be passed.
+    - name: Add tempory ssh login via password so keys can be set. 
+      blockinfile:
+        path: "/etc/ssh/sshd_config"
+        content: "Match User ansible\n
+                  \tPasswordAuthentication yes"
+        #backup: yes
+
+    # If there are no errors in configuration file, restart SSH:
+    - name: Test sshd config for problems. Restart if no problems found.
+      register: "restartSSH"
+      command: "systemctl restart ssh"
+      when: { action="sshd -t" }
+
+    - debug:
+        var: restartSSH.stdout_lines
+
+    # Create dir for keys
+    - name: Create .ssh folder for keys.
+      file:   
+        path: "/home/\"{{ new_user }}\"/.ssh"
+        state: directory
+
+    # Run script to set up user and generate keys locally:
+    - name: Edit local script.
+      delegate_to: localhost
+      become: yes
+      command: "sed -i 's/USER=/USER={{ new_user }}/g' ./template" 
+      
+    - name: Run local script.
+      delegate_to: localhost
+      become: yes  
+      command: "./template"
+
+    # Confirm ssh key for user exists locally:
+    - name: Checking for local copy of SSH key.
+      delegate_to: localhost
+      stat:
+         path: "/home/\"{{ new_user }}\"/.ssh/id_rsa.pub"
+      register: keyExists
+         
+    # Copy SSH key to remote servers.
+    - name: Copy SSH key to servers.
+      authorized_key:
+        user: "{{ new_user }}"
+        state: present
+        key: "{{ lookup('file', '/home/{{ new_user }}/.ssh/id_rsa.pub') }}"
+
+    # Move file     
+    - name: Move key to known_hosts file to become usable. 
+      command: 'cp /home/"{{ new_user }}"/.ssh/authorized_keys /home/"{{ new_user }}"/.ssh/known_hosts'
+
+    # Run local script as new user.
+    - name: Run local script as new user to copy keys remotely.
+      delegate_to: localhost
+      become_user: "{{ new_user }}"
+      command: '/home/"{{ new_user }}"/template'
+
+    # Ensure user is prompted to change password on next login.    
+    - name: "Ensure user is prompted to change password on next login."
+      command: chage -d 0 "{{ new_user }}"
+
+    # Remove edit to local script
+    - name: Remove edit to local script.
+      delegate_to: localhost
+      command: "sed -i 's/USER={{ new_user }}/USER=/g' ./template"
+
+    # Replace ssh config with original contents
+    - name: Replace ssh config with original contents.
+      command: 'cp /etc/ssh/sshd_config.bak /etc/ssh/sshd_config'
+
+    # If there are no errors in configuration file, restart SSH:
+    - name: Test sshd config for problems. Restart if no problems found.
+      register: "restartSSH"
+      command: "systemctl restart ssh"
+      when: { action="sshd -t" }
+
+# Removing the user shanky from the system 
+#    - name: Remove the user 'ansible' if present in the linux system
+#      ansible.builtin.user:
+#        name: ansible
+#        state: absent
+#        remove: yes
