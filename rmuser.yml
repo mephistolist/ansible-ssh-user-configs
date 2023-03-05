@@ -1,0 +1,18 @@
+- name: Ansible Create user functionlity module demo
+  hosts: servers # Defining the remote server inventory host group
+  remote_user: jcox # Using Remote user as ubuntu
+  become: yes
+  tasks:
+
+# Removing the user shanky from the system 
+    - name: Remove the user 'ansible' if present in the linux system
+      ansible.builtin.user:
+        name: ansible
+        state: absent
+        remove: yes
+
+    #- name: remove web dir contents
+    #file: path='/home/ansible/{{ item }}' state=absent
+    #with_fileglob:
+    #- /home/ansible/*
+

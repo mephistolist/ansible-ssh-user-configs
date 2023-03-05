@@ -1,0 +1,25 @@
+#!/bin/bash
+
+USER=
+
+useradd $USER
+mkdir -p /home/$USER/.ssh
+chown -R $USER: /home/$USER
+sudo -u $USER ssh-keygen -t rsa -N '' -f /home/$USER/.ssh/id_rsa <<<y
+cd /home/$USER/
+
+echo "#!/bin/bash" > /home/$USER/template
+echo " " >> /home/$USER/template
+echo "chsh -s /bin/bash" >> /home/$USER/template
+echo " " >> /home/$USER/template
+echo "for HOST in \$(awk '{ print \$2 }' /etc/ansible/hosts | awk -F'=' '{ print \$2 }' | egrep -v \"^$\")" >> /home/$USER/template
+echo "do" >> /home/$USER/template
+echo "		sudo -u $USER sshpass -f password_file ssh-copy-id $USER@\$HOST" >> /home/$USER/template
+echo "done" >> /home/$USER/template
+echo "welcome@nsible" > /home/$USER/password_file
+echo " " >> /home/$USER/template
+echo "exit"
+chmod +x /home/$USER/template
+
+sudo echo "$USER ALL=(ALL:ALL) ALL" >> /etc/sudoers
+cd - 2>/dev/null
