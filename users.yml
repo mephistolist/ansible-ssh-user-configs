@@ -108,7 +108,7 @@
       command: "systemctl restart ssh"
       when: { action="sshd -t" }
 
-# Removing the user shanky from the system 
+# Removing the user 'ansible' from the system 
 #    - name: Remove the user 'ansible' if present in the linux system
 #      ansible.builtin.user:
 #        name: ansible
