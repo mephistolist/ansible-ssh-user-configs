@@ -27,7 +27,7 @@
         shell: /bin/bash
         #generate_ssh_key: true
 
-    # Adding the user ansible in the jcox group 
+    # Backing up the ssh config. 
     - name: Backup ssh config file
       command: "cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak"
 
